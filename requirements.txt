@@ -1,0 +1,6 @@
+python-telegram-bot
+Flask
+pandas
+numpy
+scikit-learn
+requests
