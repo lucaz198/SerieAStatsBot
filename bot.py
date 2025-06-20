@@ -10,6 +10,23 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 import numpy as np
 
+# === KEEP ALIVE FLASK SERVER ===
+from flask import Flask
+from threading import Thread
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "I'm alive!"
+
+def run():
+    app.run(host='0.0.0.0', port=10000)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
 # === CONFIGURAZIONE API FOOTBALL ===
 API_FOOTBALL_KEY = "83c7d3ff5945c5b92aa67a698b159e48"
 API_URL = "https://v3.football.api-sports.io/fixtures"
@@ -38,7 +55,6 @@ selected_teams = {}
 
 # === MACHINE LEARNING: ADDDESTRAMENTO MODELLO PER PRONOSTICI ===
 
-# Prepara i dati per il ML (solo partite complete e con dati numerici)
 ml_df = recent_data.copy()
 ml_df = ml_df.dropna(subset=[
     'FullTimeHomeGoals', 'FullTimeAwayGoals',
@@ -65,7 +81,7 @@ X = ml_df[ml_features]
 y = ml_df['esito']
 
 # Addestra il modello solo una volta
-if len(ml_df) > 50:  # Solo se abbiamo abbastanza dati!
+if len(ml_df) > 50:
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.15, random_state=42)
     ml_model = RandomForestClassifier(n_estimators=80, random_state=42)
     ml_model.fit(X_train, y_train)
@@ -279,7 +295,6 @@ async def next_match_prediction(update: Update, context: CallbackContext) -> Non
     if not filtered_data.empty:
 
         # --- MACHINE LEARNING PRONOSTICO ---
-        # Ricava i valori medi per le feature ML
         input_data = {}
         for col in ['HomeShots', 'AwayShots', 'HomeCorners', 'AwayCorners', 'Bet365HomeOdds', 'Bet365AwayOdds', 'Bet365DrawOdds']:
             if not filtered_data[col].isnull().all():
@@ -287,11 +302,9 @@ async def next_match_prediction(update: Update, context: CallbackContext) -> Non
             else:
                 input_data[col] = recent_data[col].mean()
 
-        # Se il modello ML è stato addestrato, usalo!
         if ml_model is not None:
             X_pred = pd.DataFrame([input_data], columns=ml_features)
             proba = ml_model.predict_proba(X_pred)[0]
-            # Ordine: [Pareggio, Vittoria Casa, Vittoria Trasferta] se y = 0,1,2
             prob_draw = proba[0] * 100
             prob_home = proba[1] * 100
             prob_away = proba[2] * 100
@@ -304,7 +317,6 @@ async def next_match_prediction(update: Update, context: CallbackContext) -> Non
         else:
             ml_msg = ""
 
-        # --- PRONOSTICO TRADIZIONALE ---
         total_matches = filtered_data.shape[0]
         home_wins = filtered_data[
             (filtered_data["HomeTeam"].str.lower() == home_team) &
@@ -441,4 +453,5 @@ def main() -> None:
     application.run_polling()
 
 if __name__ == "__main__":
+    keep_alive()  # Avvia il server Flask per tenere sveglio il bot sulle piattaforme cloud
     main()
