@@ -452,15 +452,17 @@ def main() -> None:
     print("Il bot è in esecuzione...")
     application.run_polling()
 
-import os
-from threading import Thread
+def run_flask():
+    import os
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
 
 if __name__ == "__main__":
-    # Avvia il bot Telegram in un thread separato
-    bot_thread = Thread(target=main)
-    bot_thread.daemon = True
-    bot_thread.start()
+    from threading import Thread
+    # Flask in un thread secondario
+    flask_thread = Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
 
-    # Avvia il server Flask nel main thread (così Render lo tiene sveglio)
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+    # Il bot Telegram nel main thread!
+    main()
