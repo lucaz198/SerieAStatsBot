@@ -27,10 +27,10 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# === CONFIGURAZIONE API FOOTBALL ===
+# === CONFIGURAZIONE API FOOTBALL-DATA.ORG ===
 API_FOOTBALL_KEY = "8b70a590792243ddbcd2e36176ed4f1c"
 API_URL = "https://api.football-data.org/v4/matches"
-HEADERS = { 'X-Auth-Token': 'UR_TOKEN' }
+HEADERS = { 'X-Auth-Token': API_FOOTBALL_KEY }
 
 # Carica i dati dal file CSV
 data = pd.read_csv("dati_combinati.csv")
@@ -368,7 +368,7 @@ async def next_match_prediction(update: Update, context: CallbackContext) -> Non
         parse_mode="Markdown"
     )
 
-# === PARTITE LIVE (TUTTE LE LEGHE) ===
+# === PARTITE LIVE (TUTTE LE LEGHE, football-data.org v4) ===
 async def show_live_matches(update: Update, context: CallbackContext) -> None:
     if hasattr(update, 'message') and update.message:
         reply = update.message.reply_text
@@ -378,50 +378,56 @@ async def show_live_matches(update: Update, context: CallbackContext) -> None:
     else:
         return
 
-    params = {"live": "all"}
+    # Chiede tutte le partite con status "LIVE" o "IN_PLAY" o "PAUSED"
     try:
-        response = requests.get(API_URL, headers=HEADERS, params=params, timeout=10)
-        fixtures = response.json().get("response", [])
+        response = requests.get(API_URL, headers=HEADERS, timeout=10)
+        matches = response.json().get("matches", [])
     except Exception as e:
         await reply("⚠️ Errore nel recupero dei dati live.")
         return
 
-    if not fixtures:
+    live_statuses = {"LIVE", "IN_PLAY", "PAUSED"}
+    live_matches = [m for m in matches if m.get("status") in live_statuses]
+
+    if not live_matches:
         await reply("⏳ Nessuna partita live trovata al momento.")
         return
 
     message = "🔴 *PRIME 10 PARTITE LIVE IN TUTTO IL MONDO:*\n\n"
     count = 0
-    for match in fixtures:
+    for match in live_matches:
         if count >= 10:
             break
-        league = match.get('league', {})
-        league_name = league.get('name', 'Lega Sconosciuta')
-        country = league.get('country', 'Paese sconosciuto')
-        teams = match['teams']
-        fixture = match['fixture']
-        status = fixture['status']['short']
-        home = teams['home']['name']
-        away = teams['away']['name']
-        date_str = fixture['date']
+        competition = match.get("competition", {})
+        league_name = competition.get("name", "Competizione Sconosciuta")
+        country = competition.get("area", {}).get("name", "")
+        home = match["homeTeam"]["name"]
+        away = match["awayTeam"]["name"]
+        utc_date = match.get("utcDate", "")
         try:
-            dt = datetime.datetime.fromisoformat(date_str.replace('Z','+00:00'))
+            dt = datetime.datetime.fromisoformat(utc_date.replace('Z','+00:00'))
             ora = dt.strftime("%H:%M")
         except Exception:
             ora = "?"
-        goals = match['goals']
-        score = f"{goals['home']} - {goals['away']}" if (goals['home'] is not None and goals['away'] is not None and status != "NS") else "vs"
+
+        # Score live
+        score_ft = match.get("score", {}).get("fullTime", {})
+        goals_home = score_ft.get("home")
+        goals_away = score_ft.get("away")
+        score = f"{goals_home} - {goals_away}" if (goals_home is not None and goals_away is not None) else "vs"
+        # Stato partita
+        status = match.get("status", "")
         status_map = {
-            "NS": "🕒 Inizio ore",
-            "1H": "⏱️ 1° Tempo",
-            "HT": "⏸️ Intervallo",
-            "2H": "⏱️ 2° Tempo",
-            "FT": "✅ Finale",
-            "ET": "⏱️ Supplementari",
-            "P": "⚽ Rigori",
+            "IN_PLAY": "🔴 LIVE",
             "LIVE": "🔴 LIVE",
+            "PAUSED": "⏸️ Pausa",
+            "SUSPENDED": "🚫 Sospesa",
+            "FINISHED": "✅ Finale",
+            "TIMED": "🕒 Programmata",
+            "SCHEDULED": "🕒 Programmata",
         }
         status_str = status_map.get(status, status)
+
         message += f"{status_str} {ora} — *{home}* {score} *{away}*\n🏆 {league_name} ({country})\n\n"
         count += 1
 
@@ -459,10 +465,7 @@ def run_flask():
 
 if __name__ == "__main__":
     from threading import Thread
-    # Flask in un thread secondario
     flask_thread = Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
-
-    # Il bot Telegram nel main thread!
     main()
