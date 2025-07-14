@@ -28,7 +28,7 @@ def keep_alive():
     t.start()
 
 # === CONFIGURAZIONE API FOOTBALL ===
-API_FOOTBALL_KEY = "83c7d3ff5945c5b92aa67a698b159e48"
+API_FOOTBALL_KEY = "1154c4eb76c680f8639e66fa480e0173"
 API_URL = "https://v3.football.api-sports.io/fixtures"
 HEADERS = {"X-RapidAPI-Key": API_FOOTBALL_KEY}
 
