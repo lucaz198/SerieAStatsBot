@@ -28,9 +28,9 @@ def keep_alive():
     t.start()
 
 # === CONFIGURAZIONE API FOOTBALL ===
-API_FOOTBALL_KEY = "1154c4eb76c680f8639e66fa480e0173"
-API_URL = "https://v3.football.api-sports.io/fixtures"
-HEADERS = {"X-RapidAPI-Key": API_FOOTBALL_KEY}
+API_FOOTBALL_KEY = "8b70a590792243ddbcd2e36176ed4f1c"
+API_URL = "https://api.football-data.org/v4/matches"
+HEADERS = { 'X-Auth-Token': 'UR_TOKEN' }
 
 # Carica i dati dal file CSV
 data = pd.read_csv("dati_combinati.csv")
